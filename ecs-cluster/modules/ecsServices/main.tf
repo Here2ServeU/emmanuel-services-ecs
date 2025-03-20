@@ -18,17 +18,17 @@ resource "aws_ecs_service" "flask_service" {
   }
 }
 
-resource "aws_ecs_service" "angular_service" {
-  name            = var.angular_service_name
+resource "aws_ecs_service" "node_service" {
+  name            = var.node_service_name
   cluster         = var.cluster_name
-  task_definition = var.angular_task_definition
+  task_definition = var.node_task_definition
   launch_type     = "FARGATE"
   desired_count   = 1
 
   load_balancer {
-    target_group_arn = var.angular_target_group_arn
-    container_name   = var.angular_service_name
-    container_port   = var.angular_container_port
+    target_group_arn = var.node_target_group_arn
+    container_name   = var.node_service_name
+    container_port   = var.node_container_port
   }
 
   network_configuration {

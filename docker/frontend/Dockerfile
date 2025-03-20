@@ -1,29 +1,23 @@
-# Use Node.js as base image for building Angular (Force architecture)
-FROM --platform=linux/amd64 node:18-alpine AS build
+# Use Node.js as base image
+FROM node:18
 
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json separately for better caching
+# Copy package files separately for better caching
 COPY package.json package-lock.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy the rest of the app
+# Copy all files (including public/)
 COPY . .
 
-# Build Angular app for production
-RUN npm run build --configuration=production
+# Ensure the public directory exists
+RUN mkdir -p /app/public && chmod -R 755 /app/public
 
-# Use Nginx as a lightweight server to serve the built Angular app (Force architecture)
-FROM --platform=linux/amd64 nginx:alpine
+# Expose the correct port
+EXPOSE 3000
 
-# Copy the built app from the previous stage
-COPY --from=build /app/dist/angular-frontend /usr/share/nginx/html
-
-# Expose port 8080 for the frontend
-EXPOSE 8080
-
-# Start Nginx server
-CMD ["nginx", "-g", "daemon off;"]
+# Start the server
+CMD ["node", "server.js"]

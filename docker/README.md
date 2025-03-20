@@ -39,8 +39,9 @@ npm install -g @angular/cli
 
 Run the following command to generate an Angular project:
 ```sh
-ng new angular-frontend
-cd angular-frontend
+npm init -y
+npm install
+ng new . --directory . --skip-install
 ```
 
 

@@ -3,7 +3,7 @@ variable "ecr_repo_name_flask" {
   type        = string
 }
 
-variable "ecr_repo_name_angular" {
-  description = "ECR repository name for Angular frontend"
+variable "ecr_repo_name_node" {
+  description = "ECR repository name for Node.js frontend"
   type        = string
 }

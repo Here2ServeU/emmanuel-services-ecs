@@ -1,0 +1,83 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = "us-east-1"
+        ECR_REPO_FLASK = "730335276920.dkr.ecr.us-east-1.amazonaws.com/${local.ecr_repo_name_flask}"
+        ECR_REPO_ANGULAR = "730335276920.dkr.ecr.us-east-1.amazonaws.com/${local.ecr_repo_name_angular}"
+        FRONTEND_IMAGE = "${ECR_REPO_ANGULAR}:latest"
+        BACKEND_IMAGE = "${ECR_REPO_FLASK}:latest"
+        REPO_URL = "https://github.com/Here2ServeU/emmanuel-services-ecs.git"
+        ALB_FRONTEND_URL = "http://${local.angular_frontend_alb_name}"
+        ALB_BACKEND_URL = "http://${local.flask_backend_alb_name}"
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', url: "${REPO_URL}"
+            }
+        }
+
+        stage('Build & Push Docker Images') {
+            steps {
+                script {
+                    // Authenticate with AWS ECR
+                    sh """
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_FLASK}
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_ANGULAR}
+                    """
+
+                    // Build Docker images
+                    sh """
+                        docker build -t ${FRONTEND_IMAGE} ./frontend
+                        docker build -t ${BACKEND_IMAGE} ./backend
+                    """
+
+                    // Push images to ECR
+                    sh """
+                        docker push ${FRONTEND_IMAGE}
+                        docker push ${BACKEND_IMAGE}
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to ECS with Terraform') {
+            steps {
+                script {
+                    sh """
+                        terraform init -backend-config="bucket=${local.bucket_name}" \
+                                       -backend-config="dynamodb_table=${local.table_name}" \
+                                       -backend-config="region=${AWS_REGION}"
+                        terraform apply -auto-approve
+                    """
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    def frontendStatus = sh(script: "curl -o /dev/null -s -w '%{http_code}' ${ALB_FRONTEND_URL}", returnStdout: true).trim()
+                    def backendStatus = sh(script: "curl -o /dev/null -s -w '%{http_code}' ${ALB_BACKEND_URL}", returnStdout: true).trim()
+                    
+                    if (frontendStatus != '200' || backendStatus != '200') {
+                        error("Deployment verification failed: Frontend (${frontendStatus}), Backend (${backendStatus})")
+                    } else {
+                        echo "All services are up and running successfully!"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo " Deployment completed successfully!"
+        }
+        failure {
+            echo " Deployment failed. Please check logs for details."
+        }
+    }
+}

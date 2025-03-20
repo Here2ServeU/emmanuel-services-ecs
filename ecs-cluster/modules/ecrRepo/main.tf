@@ -26,13 +26,13 @@ resource "aws_ecr_lifecycle_policy" "flask_repo_policy" {
   EOF
 }
 
-resource "aws_ecr_repository" "angular_repo" {
-  name                 = var.ecr_repo_name_angular
+resource "aws_ecr_repository" "node_repo" {
+  name                 = var.ecr_repo_name_node
   image_tag_mutability = "MUTABLE"
 }
 
-resource "aws_ecr_lifecycle_policy" "angular_repo_policy" {
-  repository = aws_ecr_repository.angular_repo.name
+resource "aws_ecr_lifecycle_policy" "node_repo_policy" {
+  repository = aws_ecr_repository.node_repo.name
   policy     = <<EOF
   {
     "rules": [

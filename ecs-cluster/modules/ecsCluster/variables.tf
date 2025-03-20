@@ -70,43 +70,43 @@ variable "flask_target_group_arn" {
   type        = string
 }
 
-# Angular Frontend Variables
-variable "angular_task_family" {
-  description = "Angular ECS task family name"
+# Node.js Frontend Variables (Replacing Angular)
+variable "node_task_family" {
+  description = "Node.js ECS task family name"
   type        = string
 }
 
-variable "angular_task_name" {
-  description = "Angular ECS task name"
+variable "node_task_name" {
+  description = "Node.js ECS task name"
   type        = string
 }
 
-variable "angular_container_port" {
-  description = "Angular container port"
+variable "node_container_port" {
+  description = "Node.js container port"
   type        = number
 }
 
-variable "angular_ecr_repo_url" {
-  description = "ECR repository URL for Angular frontend"
+variable "node_ecr_repo_url" {
+  description = "ECR repository URL for Node.js frontend"
   type        = string
 }
 
-variable "angular_frontend_alb_name" {
-  description = "Angular frontend ALB name"
+variable "node_frontend_alb_name" {
+  description = "Node.js frontend ALB name"
   type        = string
 }
 
-variable "angular_frontend_tg_name" {
-  description = "Angular frontend target group name"
+variable "node_frontend_tg_name" {
+  description = "Node.js frontend target group name"
   type        = string
 }
 
-variable "angular_service_name" {
-  description = "Angular ECS service name"
+variable "node_service_name" {
+  description = "Node.js ECS service name"
   type        = string
 }
 
-variable "angular_target_group_arn" {
-  description = "Angular ALB target group ARN"
+variable "node_target_group_arn" {
+  description = "Node.js ALB target group ARN"
   type        = string
 }
