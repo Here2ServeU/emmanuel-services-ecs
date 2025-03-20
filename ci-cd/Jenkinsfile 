@@ -2,14 +2,16 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = "us-east-1"
-        ECR_REPO_FLASK = "730335276920.dkr.ecr.us-east-1.amazonaws.com/${local.ecr_repo_name_flask}"
-        ECR_REPO_ANGULAR = "730335276920.dkr.ecr.us-east-1.amazonaws.com/${local.ecr_repo_name_angular}"
-        FRONTEND_IMAGE = "${ECR_REPO_ANGULAR}:latest"
+        AWS_REGION = credentials('AWS_REGION')
+        ECR_REPO_FLASK = credentials('ECR_REPO_FLASK')
+        ECR_REPO_NODE = credentials('ECR_REPO_NODE')  // Replacing Angular with Node
+        FRONTEND_IMAGE = "${ECR_REPO_NODE}:latest"
         BACKEND_IMAGE = "${ECR_REPO_FLASK}:latest"
-        REPO_URL = "https://github.com/Here2ServeU/emmanuel-services-ecs.git"
-        ALB_FRONTEND_URL = "http://${local.angular_frontend_alb_name}"
-        ALB_BACKEND_URL = "http://${local.flask_backend_alb_name}"
+        REPO_URL = credentials('GIT_REPO_URL')
+        ALB_FRONTEND_URL = credentials('ALB_FRONTEND_URL')
+        ALB_BACKEND_URL = credentials('ALB_BACKEND_URL')
+        S3_BUCKET = credentials('S3_BUCKET')
+        DYNAMODB_TABLE = credentials('DYNAMODB_TABLE')
     }
 
     stages {
@@ -25,13 +27,13 @@ pipeline {
                     // Authenticate with AWS ECR
                     sh """
                         aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_FLASK}
-                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_ANGULAR}
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_NODE}
                     """
 
                     // Build Docker images
                     sh """
-                        docker build -t ${FRONTEND_IMAGE} ./frontend
-                        docker build -t ${BACKEND_IMAGE} ./backend
+                        docker build -t ${FRONTEND_IMAGE} ./docker/frontend
+                        docker build -t ${BACKEND_IMAGE} ./docker/backend
                     """
 
                     // Push images to ECR
@@ -47,8 +49,8 @@ pipeline {
             steps {
                 script {
                     sh """
-                        terraform init -backend-config="bucket=${local.bucket_name}" \
-                                       -backend-config="dynamodb_table=${local.table_name}" \
+                        terraform init -backend-config="bucket=${S3_BUCKET}" \
+                                       -backend-config="dynamodb_table=${DYNAMODB_TABLE}" \
                                        -backend-config="region=${AWS_REGION}"
                         terraform apply -auto-approve
                     """
@@ -74,10 +76,10 @@ pipeline {
 
     post {
         success {
-            echo " Deployment completed successfully!"
+            echo "Deployment completed successfully!"
         }
         failure {
-            echo " Deployment failed. Please check logs for details."
+            echo "Deployment failed. Please check logs for details."
         }
     }
 }
