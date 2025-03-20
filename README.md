@@ -70,3 +70,4 @@ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 - Install suggested Plugins 
 - Create Admin User
 - Dashboard -> Manage Jenkins -> Global Properties -> Environment variables
+
