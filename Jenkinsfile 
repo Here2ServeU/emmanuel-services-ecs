@@ -61,7 +61,7 @@ pipeline {
                     sh """
                         CLUSTER_NAME="emmanuel-cluster"
                         SERVICE_NAME="emmanuel-service"
-                        TASK_DEFINITION_FILE="ecs-task-def.json"
+                        TASK_DEFINITION_FILE="node-frontend-task.json"
 
                         TASK_DEF_ARN=\$(aws ecs register-task-definition \\
                             --cli-input-json file://\$TASK_DEFINITION_FILE \\
