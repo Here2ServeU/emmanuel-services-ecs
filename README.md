@@ -57,6 +57,32 @@ terraform apply -auto-approve
 chmod 400 jenkins-key.pem  #
 ssh -i jenkins-key.pem user-name@<EC2-PUBLIC-IP>  # To SSH into your Jenkins Server. 
 ```
+- Install AWS CLI and Docker on Jenkins Agent
+```sh
+sudo apt-get update
+sudo apt-get install -y awscli
+
+sudo apt-get update
+sudo apt-get install -y docker.io
+
+sudo usermod -aG docker jenkins
+sudo systemctl restart docker
+sudo systemctl restart jenkins
+```
+
+- Install Terraform
+```sh
+sudo apt-get update -y
+sudo apt-get install -y gnupg software-properties-common curl unzip
+
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+sudo apt update
+sudo apt install terraform -y
+```
+
 - Go to the Jenkins UI by using this URL: 
 ```plaintext
 http://your-public-ec2-ip:8080
