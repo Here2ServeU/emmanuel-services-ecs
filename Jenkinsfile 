@@ -2,22 +2,22 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION             = credentials('AWS_REGION')
-        ECR_REPO_FLASK         = credentials('ECR_REPO_FLASK')
-        ECR_REPO_NODE          = credentials('ECR_REPO_NODE')
-        FRONTEND_IMAGE         = "${ECR_REPO_NODE}:latest"
-        BACKEND_IMAGE          = "${ECR_REPO_FLASK}:latest"
-        REPO_URL               = credentials('GIT_REPO_URL')
-        ALB_FRONTEND_URL       = credentials('ALB_FRONTEND_URL')
-        ALB_BACKEND_URL        = credentials('ALB_BACKEND_URL')
-        S3_BUCKET              = credentials('S3_BUCKET')
-        DYNAMODB_TABLE         = credentials('DYNAMODB_TABLE')
-        AWS_ACCESS_KEY_ID      = credentials('AWS_ACCESS_KEY_ID')
-        AWS_SECRET_ACCESS_KEY  = credentials('AWS_SECRET_ACCESS_KEY')
+        AWS_REGION            = credentials('AWS_REGION')
+        ECR_REPO_FLASK        = credentials('ECR_REPO_FLASK')
+        ECR_REPO_NODE         = credentials('ECR_REPO_NODE')
+        FRONTEND_IMAGE        = "${ECR_REPO_NODE}:latest"
+        BACKEND_IMAGE         = "${ECR_REPO_FLASK}:latest"
+        REPO_URL              = credentials('GIT_REPO_URL')
+        ALB_FRONTEND_URL      = credentials('ALB_FRONTEND_URL')
+        ALB_BACKEND_URL       = credentials('ALB_BACKEND_URL')
+        S3_BUCKET             = credentials('S3_BUCKET')
+        DYNAMODB_TABLE        = credentials('DYNAMODB_TABLE')
+        AWS_ACCESS_KEY_ID     = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
     }
 
     triggers {
-        pollSCM('H/5 * * * *') // Poll GitHub every 5 minutes
+        pollSCM('H/5 * * * *')
     }
 
     stages {
@@ -30,7 +30,6 @@ pipeline {
         stage('Build & Push Docker Images') {
             steps {
                 script {
-                    // Authenticate with ECR
                     sh """
                         aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
                         aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
@@ -38,16 +37,10 @@ pipeline {
 
                         aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_FLASK}
                         aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_NODE}
-                    """
 
-                    // Build Docker images
-                    sh """
                         docker build -t ${FRONTEND_IMAGE} ./docker/frontend
                         docker build -t ${BACKEND_IMAGE} ./docker/backend
-                    """
 
-                    // Push Docker images
-                    sh """
                         docker push ${FRONTEND_IMAGE}
                         docker push ${BACKEND_IMAGE}
                     """
@@ -59,10 +52,18 @@ pipeline {
             steps {
                 script {
                     sh """
-                        CLUSTER_NAME="emmanuel-cluster"
-                        SERVICE_NAME="emmanuel-service"
+                        CLUSTER_NAME="emmanuel-app-cluster"
+                        SERVICE_NAME="node-frontend-service"
                         TASK_DEFINITION_FILE="node-frontend-task.json"
 
+                        # Verify ECS cluster exists
+                        CLUSTER_EXISTS=\$(aws ecs describe-clusters --clusters \$CLUSTER_NAME --region ${AWS_REGION} --query "clusters[?status=='ACTIVE'].clusterName" --output text)
+                        if [ "\$CLUSTER_EXISTS" != "\$CLUSTER_NAME" ]; then
+                            echo "ERROR: ECS Cluster '\$CLUSTER_NAME' not found in region '${AWS_REGION}'"
+                            exit 1
+                        fi
+
+                        # Register new task definition
                         TASK_DEF_ARN=\$(aws ecs register-task-definition \\
                             --cli-input-json file://\$TASK_DEFINITION_FILE \\
                             --region ${AWS_REGION} \\
@@ -70,6 +71,7 @@ pipeline {
 
                         echo "New Task Definition ARN: \$TASK_DEF_ARN"
 
+                        # Update ECS service
                         aws ecs update-service \\
                             --cluster \$CLUSTER_NAME \\
                             --service \$SERVICE_NAME \\
@@ -89,7 +91,7 @@ pipeline {
                     if (frontendStatus != '200' || backendStatus != '200') {
                         error("Deployment verification failed: Frontend (${frontendStatus}), Backend (${backendStatus})")
                     } else {
-                        echo "Node frontend and Flask backend services are up and running successfully!"
+                        echo "Node frontend and Flask backend services are running successfully!"
                     }
                 }
             }
