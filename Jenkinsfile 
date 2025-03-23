@@ -2,16 +2,22 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = credentials('AWS_REGION')
-        ECR_REPO_FLASK = credentials('ECR_REPO_FLASK')
-        ECR_REPO_NODE = credentials('ECR_REPO_NODE')  // Replacing Angular with Node
-        FRONTEND_IMAGE = "${ECR_REPO_NODE}:latest"
-        BACKEND_IMAGE = "${ECR_REPO_FLASK}:latest"
-        REPO_URL = credentials('GIT_REPO_URL')
-        ALB_FRONTEND_URL = credentials('ALB_FRONTEND_URL')
-        ALB_BACKEND_URL = credentials('ALB_BACKEND_URL')
-        S3_BUCKET = credentials('S3_BUCKET')
-        DYNAMODB_TABLE = credentials('DYNAMODB_TABLE')
+        AWS_REGION           = credentials('AWS_REGION')
+        ECR_REPO_FLASK       = credentials('ECR_REPO_FLASK')
+        ECR_REPO_NODE        = credentials('ECR_REPO_NODE')
+        FRONTEND_IMAGE       = "${ECR_REPO_NODE}:latest"
+        BACKEND_IMAGE        = "${ECR_REPO_FLASK}:latest"
+        REPO_URL             = credentials('GIT_REPO_URL')
+        ALB_FRONTEND_URL     = credentials('ALB_FRONTEND_URL')
+        ALB_BACKEND_URL      = credentials('ALB_BACKEND_URL')
+        S3_BUCKET            = credentials('S3_BUCKET')
+        DYNAMODB_TABLE       = credentials('DYNAMODB_TABLE')
+        AWS_ACCESS_KEY_ID    = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+    }
+
+    triggers {
+        pollSCM('H/5 * * * *') // Poll GitHub every 5 minutes for changes
     }
 
     stages {
@@ -24,8 +30,12 @@ pipeline {
         stage('Build & Push Docker Images') {
             steps {
                 script {
-                    // Authenticate with AWS ECR
+                    // Authenticate with ECR
                     sh """
+                        aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+                        aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+                        aws configure set region ${AWS_REGION}
+
                         aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_FLASK}
                         aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_NODE}
                     """
@@ -36,7 +46,7 @@ pipeline {
                         docker build -t ${BACKEND_IMAGE} ./docker/backend
                     """
 
-                    // Push images to ECR
+                    // Push Docker images
                     sh """
                         docker push ${FRONTEND_IMAGE}
                         docker push ${BACKEND_IMAGE}
@@ -63,11 +73,11 @@ pipeline {
                 script {
                     def frontendStatus = sh(script: "curl -o /dev/null -s -w '%{http_code}' ${ALB_FRONTEND_URL}", returnStdout: true).trim()
                     def backendStatus = sh(script: "curl -o /dev/null -s -w '%{http_code}' ${ALB_BACKEND_URL}", returnStdout: true).trim()
-                    
+
                     if (frontendStatus != '200' || backendStatus != '200') {
                         error("Deployment verification failed: Frontend (${frontendStatus}), Backend (${backendStatus})")
                     } else {
-                        echo "All services are up and running successfully!"
+                        echo "Node frontend and Flask backend services are up and running successfully!"
                     }
                 }
             }
