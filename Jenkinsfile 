@@ -2,22 +2,22 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION           = credentials('AWS_REGION')
-        ECR_REPO_FLASK       = credentials('ECR_REPO_FLASK')
-        ECR_REPO_NODE        = credentials('ECR_REPO_NODE')
-        FRONTEND_IMAGE       = "${ECR_REPO_NODE}:latest"
-        BACKEND_IMAGE        = "${ECR_REPO_FLASK}:latest"
-        REPO_URL             = credentials('GIT_REPO_URL')
-        ALB_FRONTEND_URL     = credentials('ALB_FRONTEND_URL')
-        ALB_BACKEND_URL      = credentials('ALB_BACKEND_URL')
-        S3_BUCKET            = credentials('S3_BUCKET')
-        DYNAMODB_TABLE       = credentials('DYNAMODB_TABLE')
-        AWS_ACCESS_KEY_ID    = credentials('AWS_ACCESS_KEY_ID')
-        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+        AWS_REGION             = credentials('AWS_REGION')
+        ECR_REPO_FLASK         = credentials('ECR_REPO_FLASK')
+        ECR_REPO_NODE          = credentials('ECR_REPO_NODE')
+        FRONTEND_IMAGE         = "${ECR_REPO_NODE}:latest"
+        BACKEND_IMAGE          = "${ECR_REPO_FLASK}:latest"
+        REPO_URL               = credentials('GIT_REPO_URL')
+        ALB_FRONTEND_URL       = credentials('ALB_FRONTEND_URL')
+        ALB_BACKEND_URL        = credentials('ALB_BACKEND_URL')
+        S3_BUCKET              = credentials('S3_BUCKET')
+        DYNAMODB_TABLE         = credentials('DYNAMODB_TABLE')
+        AWS_ACCESS_KEY_ID      = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY  = credentials('AWS_SECRET_ACCESS_KEY')
     }
 
     triggers {
-        pollSCM('H/5 * * * *') // Poll GitHub every 5 minutes for changes
+        pollSCM('H/5 * * * *') // Poll GitHub every 5 minutes
     }
 
     stages {
@@ -55,15 +55,26 @@ pipeline {
             }
         }
 
-        stage('Deploy to ECS with Terraform') {
+        stage('Deploy to ECS using AWS CLI') {
             steps {
                 script {
                     sh """
-                        cd backend-setup/
-                        terraform init -backend-config="bucket=${S3_BUCKET}" \
-                                       -backend-config="dynamodb_table=${DYNAMODB_TABLE}" \
-                                       -backend-config="region=${AWS_REGION}"
-                        terraform apply -auto-approve
+                        CLUSTER_NAME="emmanuel-cluster"
+                        SERVICE_NAME="emmanuel-service"
+                        TASK_DEFINITION_FILE="ecs-task-def.json"
+
+                        TASK_DEF_ARN=\$(aws ecs register-task-definition \\
+                            --cli-input-json file://\$TASK_DEFINITION_FILE \\
+                            --region ${AWS_REGION} \\
+                            --query 'taskDefinition.taskDefinitionArn' --output text)
+
+                        echo "New Task Definition ARN: \$TASK_DEF_ARN"
+
+                        aws ecs update-service \\
+                            --cluster \$CLUSTER_NAME \\
+                            --service \$SERVICE_NAME \\
+                            --task-definition \$TASK_DEF_ARN \\
+                            --region ${AWS_REGION}
                     """
                 }
             }
