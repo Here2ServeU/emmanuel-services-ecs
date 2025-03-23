@@ -1,0 +1,51 @@
+{
+    "family": "flask-backend-task",
+    "containerDefinitions": [
+      {
+        "name": "flask-backend-task",
+        "image": "730335276920.dkr.ecr.us-east-1.amazonaws.com/flask-backend-ecr-repo:latest",
+        "cpu": 0,
+        "portMappings": [
+          {
+            "containerPort": 5050,
+            "hostPort": 5050,
+            "protocol": "tcp",
+            "appProtocol": "http"
+          }
+        ],
+        "essential": true,
+        "environment": [],
+        "environmentFiles": [],
+        "mountPoints": [],
+        "volumesFrom": [],
+        "ulimits": [],
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "/ecs/flask-backend-task",
+            "mode": "non-blocking",
+            "awslogs-create-group": "true",
+            "max-buffer-size": "25m",
+            "awslogs-region": "us-east-1",
+            "awslogs-stream-prefix": "ecs"
+          },
+          "secretOptions": []
+        },
+        "systemControls": []
+      }
+    ],
+    "executionRoleArn": "arn:aws:iam::730335276920:role/ecsTaskExecutionRole",
+    "networkMode": "awsvpc",
+    "volumes": [],
+    "placementConstraints": [],
+    "requiresCompatibilities": [
+      "FARGATE"
+    ],
+    "cpu": "512",
+    "memory": "1024",
+    "runtimePlatform": {
+      "cpuArchitecture": "ARM64",
+      "operatingSystemFamily": "LINUX"
+    },
+    "enableFaultInjection": false
+  }
