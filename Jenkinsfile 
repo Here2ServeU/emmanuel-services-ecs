@@ -8,10 +8,6 @@ pipeline {
         ECR_REPO_NODE = credentials('ecr-repo-node')
         ECR_REPO_FLASK = credentials('ecr-repo-flask')
         REPO_URL = credentials('repo-url')
-        S3_BUCKET = credentials('s3-bucket')
-        DYNAMODB_TABLE = credentials('dynamodb-table')
-        ALB_FRONTEND_URL = credentials('alb-frontend-url')
-        ALB_BACKEND_URL = credentials('alb-backend-url')
     }
 
     stages {
@@ -21,7 +17,7 @@ pipeline {
             }
         }
 
-        stage('Build & Push Docker Images') {
+        stage('Build & Push Docker Images to ECR') {
             steps {
                 script {
                     sh """
@@ -48,67 +44,14 @@ pipeline {
                 }
             }
         }
-
-        stage('Deploy to ECS using AWS CLI') {
-            steps {
-                script {
-                    def CLUSTER_NAME = 'emmanuel-app-cluster'
-                    def SERVICE_NAME = 'node-frontend-service'
-                    def TASK_DEFINITION_FILE = 'node-frontend-task.json'
-
-                    sh """
-                        echo Checking ECS cluster
-                        CLUSTER_EXISTS=\$(aws ecs describe-clusters --clusters ${CLUSTER_NAME} --region ${AWS_REGION} --query "clusters[?status=='ACTIVE'].clusterName" --output text)
-                        if [ "\$CLUSTER_EXISTS" != "${CLUSTER_NAME}" ]; then
-                            echo "ERROR: ECS Cluster '${CLUSTER_NAME}' not found"
-                            exit 1
-                        fi
-
-                        echo Registering new task definition
-                        TASK_DEF_ARN=\$(aws ecs register-task-definition --cli-input-json file://${TASK_DEFINITION_FILE} --region ${AWS_REGION} --query taskDefinition.taskDefinitionArn --output text)
-
-                        echo Updating ECS service
-                        aws ecs update-service --cluster ${CLUSTER_NAME} --service ${SERVICE_NAME} --task-definition \$TASK_DEF_ARN --desired-count 1 --region ${AWS_REGION}
-                    """
-                }
-            }
-        }
-
-        stage('Wait for ECS Service Stabilization') {
-            steps {
-                script {
-                    echo "Waiting 60 seconds for ECS tasks to start..."
-                    sleep(time: 60, unit: 'SECONDS')
-                }
-            }
-        }
-
-        stage('Verify Deployment') {
-            steps {
-                script {
-                    echo "Verifying frontend at ${ALB_FRONTEND_URL}"
-                    def frontendStatus = sh(script: "curl -o /dev/null -s -w '%{http_code}' ${ALB_FRONTEND_URL}", returnStdout: true).trim()
-
-                    echo "Verifying backend at ${ALB_BACKEND_URL}"
-                    def backendStatus = sh(script: "curl -o /dev/null -s -w '%{http_code}' ${ALB_BACKEND_URL}", returnStdout: true).trim()
-
-                    echo "Frontend Status: ${frontendStatus}"
-                    echo "Backend Status: ${backendStatus}"
-
-                    if (frontendStatus != '200' || backendStatus != '200') {
-                        error("Deployment verification failed. Frontend: ${frontendStatus}, Backend: ${backendStatus}")
-                    }
-                }
-            }
-        }
     }
 
     post {
         failure {
-            echo 'Deployment failed. Please check logs for details.'
+            echo 'Docker build or push failed. Please check logs for details.'
         }
         success {
-            echo 'Deployment completed successfully.'
+            echo 'Docker images successfully built and pushed to ECR.'
         }
     }
 }
